@@ -49,6 +49,7 @@ if __name__ == '__main__':
     total_steps=0
     start=time.time()
     possible_next_goals = [74,75,84,85]
+
     history_steps = np.zeros((args.nruns, args.nepisodes))
     observation_history = np.zeros((args.nruns, args.nepisodes, args.noptions, 13, 13)) # 13x13 room
     state_eta_history = np.zeros((args.nruns, args.nepisodes, 13, 13))
@@ -202,9 +203,9 @@ if __name__ == '__main__':
 
     
     if args.multi_option:
-        new_folder_name = f'multi_option_noptions{args.noptions}_nruns{args.nruns}_nepisodes{args.nepisodes}_nsteps{args.nsteps}'
+        new_folder_name = f'Learned_multi_option_noptions{args.noptions}_nruns{args.nruns}_nepisodes{args.nepisodes}_nsteps{args.nsteps}'
     else:
-        new_folder_name = f'single_option_noptions{args.noptions}_nruns{args.nruns}_nepisodes{args.nepisodes}_nsteps{args.nsteps}'
+        new_folder_name = f'Learned_single_option_noptions{args.noptions}_nruns{args.nruns}_nepisodes{args.nepisodes}_nsteps{args.nsteps}'
     if args.linear_eta:
         new_folder_name += f"_LINEAR_eta_distance_{args.linear_eta_distance}"
     else:
@@ -253,7 +254,7 @@ if __name__ == '__main__':
 
     #colormap for state_related eta
     eta_state_activity_per_run = np.mean(state_eta_history, axis=0)
-    eta_state_activity_per_episode = np.mean(eta_state_activity_per_run, axis=0)
+    eta_state_activity_per_episode = np.sum(eta_state_activity_per_run, axis=0)
     eta_full_env = eta_state_activity_per_episode
     new_inferno = cm.get_cmap('inferno', 5)
     plt.pcolormesh(eta_full_env, cmap = new_inferno)
