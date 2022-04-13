@@ -8,14 +8,16 @@ from scipy.special import expit
 from scipy.special import logsumexp
 from scipy.spatial.distance import euclidean, cityblock
 
-def exponential_smoothing(a, alpha=0.6):
+def exponential_smoothing(a, weight=0.8):
     assert a.ndim==1
-    x0 = a[0]
-    result = [x0]
-    for i in range(1,len(a)):
-        xt = alpha * a[i] + (1-alpha) * result[i-1]
-        result.append(xt)
-    return np.array(result)
+    last = a[0]  # First value in the plot (first timestep)
+    smoothed = list()
+    for point in a:
+        smoothed_val = last * weight + (1 - weight) * point  # Calculate smoothed value
+        smoothed.append(smoothed_val)                        # Save it
+        last = smoothed_val                                  # Anchor the last smoothed value
+
+    return np.array(smoothed)
 
 class StateDependentETA:
     def __init__(self, distance):
