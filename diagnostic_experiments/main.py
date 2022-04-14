@@ -53,6 +53,9 @@ if __name__ == '__main__':
     history_steps = np.zeros((args.nruns, args.nepisodes))
     observation_history = np.zeros((args.nruns, args.nepisodes, args.noptions, 13, 13)) # 13x13 room
     state_eta_history = np.zeros((args.nruns, args.nepisodes, 13, 13))
+    termination_option_next_phi_history = np.zeros((args.nruns, args.nepisodes, args.noptions, 13, 13))
+    option_update_entropy_history = np.zeros((args.nruns, args.nepisodes, args.noptions, 13, 13))
+    kl_history = np.zeros((args.nruns, args.nepisodes, args.noptions, 13, 13))
     for run in range(args.nruns):
         env = gym.make('Fourrooms-v0')
         env.set_goal(62)
@@ -119,7 +122,11 @@ if __name__ == '__main__':
 
                 next_action = option_policies[next_option].sample(next_phi)
 
-
+                #tracking termination for current option in the next state
+                #HCECK if current option terminates in next state
+                is_terminated_option_next_phi = int(option_terminations[option].sample(next_phi))
+                next_phi_i, next_phi_j = env.tocell[next_phi.item()] 
+                termination_option_next_phi_history[run, episode, option, next_phi_i, next_phi_j] = is_terminated_option_next_phi
 
                 ###Action ratios
                 action_ratios=np.zeros((args.noptions))
@@ -137,6 +144,7 @@ if __name__ == '__main__':
                 else:
                     bet = 1.0
                 prob_curr_opt = bet * meta_policy.pmf(phi) + (1-bet)*one_hot
+                prob_termination_effect_option = prob_curr_opt
                 one_hot_curr_opt= np.zeros(args.noptions)
                 one_hot_curr_opt[option] = 1.
                 
@@ -149,6 +157,11 @@ if __name__ == '__main__':
                     prob_curr_opt= eta_given_phi * prob_curr_opt + (1-eta_given_phi) * one_hot_curr_opt
                     #tracking cell activity in room
                     state_eta_history[run, episode, current_i, current_j] = eta_given_phi
+                    # tracking normal entropy of multi-update in current option
+                    option_update_entropy_history[run, episode, option, current_i, current_j] = Entropy(prob_curr_opt[option])
+                    # tracking kl-divergence of multi-update prob in current option when prob. of termination of option is known
+                    kl_history[run, episode, option, current_i, current_j] = KL_Divergence(prob_curr_opt[option], prob_termination_effect_option[option])
+                
 
                 elif args.eta:    
                     sampled_eta = float(np.random.rand() < eta)
@@ -183,7 +196,7 @@ if __name__ == '__main__':
 
                 #tracking cell activity in room
                 i,j = env.tocell[phi.item()]
-                observation_history[run, episode, option, i, j] += 1
+                observation_history[run, episode, option, i, j] = 1
 
 
                 last_opt=option
@@ -201,11 +214,12 @@ if __name__ == '__main__':
             end=time.time()
             print('Run {} Total steps {} episode {} steps {} FPS {:0.0f} '.format(run,tot_steps, episode, step,   int(tot_steps/ (end- start)) )  )
 
-    
+    new_folder_name = f'output/' # comment this for running in colab
+    time_of_creation = time.ctime()
     if args.multi_option:
-        new_folder_name = f'Learned_multi_option_noptions{args.noptions}_nruns{args.nruns}_nepisodes{args.nepisodes}_nsteps{args.nsteps}'
+        new_folder_name += f'Exp@{time_of_creation}_Learned_multi_option_noptions{args.noptions}_nruns{args.nruns}_nepisodes{args.nepisodes}_nsteps{args.nsteps}'
     else:
-        new_folder_name = f'Learned_single_option_noptions{args.noptions}_nruns{args.nruns}_nepisodes{args.nepisodes}_nsteps{args.nsteps}'
+        new_folder_name += f'Exp@{time_of_creation}_Learned_single_option_noptions{args.noptions}_nruns{args.nruns}_nepisodes{args.nepisodes}_nsteps{args.nsteps}'
     if args.linear_eta:
         new_folder_name += f"_LINEAR_eta_distance_{args.linear_eta_distance}"
     else:
@@ -225,9 +239,16 @@ if __name__ == '__main__':
         pkl.dump(observation_history, f)
     with open(os.path.join(new_folder_name,"state_eta_history.pkl"), "wb") as f:
         pkl.dump(state_eta_history, f)
+    with open(os.path.join(new_folder_name,"termination_option_next_phi_history.pkl"), "wb") as f:
+        pkl.dump(termination_option_next_phi_history, f)
+    with open(os.path.join(new_folder_name,"option_update_entropy_history.pkl"), "wb") as f:
+        pkl.dump(option_update_entropy_history, f)
+    with open(os.path.join(new_folder_name,"kl_history.pkl"), "wb") as f:
+        pkl.dump(kl_history, f)
+
 
     #plottng grahs
-    avg_steps_per_episode = exponential_smoothing(np.mean(history_steps, axis=0))
+    avg_steps_per_episode = exponential_smoothing(np.mean(history_steps, axis=0), weight=0.6)
     CI = 0.95
     plt.plot(range(args.nepisodes), avg_steps_per_episode, color='blue', label='Avg steps in completion with ' + str(CI) + '% CI')
     #confidence interval
@@ -238,18 +259,57 @@ if __name__ == '__main__':
     plt.savefig(os.path.join(new_folder_name, "Graph1.jpg"))
     plt.close("all")
     
-    activity_per_run = np.mean(observation_history, axis=0)
-    activity_per_episode = np.mean(activity_per_run, axis=0)
     
     #colormap for visited states wrt. options
+    activity_per_run = np.mean(observation_history, axis=0)
+    activity_per_episode = np.mean(activity_per_run, axis=0)
     for option in range(args.noptions):
         print('Option no.: ', option)
         full_env = activity_per_episode[option,:,:]
         new_virdis = cm.get_cmap('viridis', 5)
         plt.pcolormesh(full_env, cmap = new_virdis)
         plt.colorbar()
-        plt.title(f"Colormap of freq. of visited states in Option {option}")
+        plt.title(f"Frequency of visited states in Option {option}")
         plt.savefig(os.path.join(new_folder_name, "Colormap_option"+str(option)+'.jpg'))
+        plt.close("all")
+
+    #colormap for termination states wrt. options
+    termination_per_run = np.mean(termination_option_next_phi_history, axis=0)
+    termination_per_episode = np.mean(termination_per_run, axis=0)
+    for option in range(args.noptions):
+        print('Option no.: ', option)
+        full_env = termination_per_episode[option,:,:]
+        new_cividis = cm.get_cmap('cividis', 5)
+        plt.pcolormesh(full_env, cmap = new_cividis)
+        plt.colorbar()
+        plt.title(f"Termination states in Option {option}")
+        plt.savefig(os.path.join(new_folder_name, "Colormap_Termination_option"+str(option)+'.jpg'))
+        plt.close("all")
+
+    #colormap for entrpoy of option updates wrt. options
+    option_update_per_run = np.mean(option_update_entropy_history, axis=0)
+    option_update_per_episode = np.mean(option_update_per_run, axis=0)
+    for option in range(args.noptions):
+        print('Option no.: ', option)
+        full_env = option_update_per_episode[option,:,:]
+        new_cividis = cm.get_cmap('plasma', 5)
+        plt.pcolormesh(full_env, cmap = new_cividis)
+        plt.colorbar()
+        plt.title(f"Entropy of Option {option}")
+        plt.savefig(os.path.join(new_folder_name, "Colormap_Entropy_option"+str(option)+'.jpg'))
+        plt.close("all")
+
+    #colormap for KL of option updates wrt. prob. of termination of current options
+    kl_per_run = np.mean(kl_history, axis=0)
+    kl_per_episode = np.mean(kl_per_run, axis=0)
+    for option in range(args.noptions):
+        print('Option no.: ', option)
+        full_env = kl_per_episode[option,:,:]
+        new_cividis = cm.get_cmap('plasma', 5)
+        plt.pcolormesh(full_env, cmap = new_cividis)
+        plt.colorbar()
+        plt.title(f"KL of Option {option} wrt. to Termination")
+        plt.savefig(os.path.join(new_folder_name, "Colormap_KL_option"+str(option)+'.jpg'))
         plt.close("all")
 
     #colormap for state_related eta
@@ -259,7 +319,7 @@ if __name__ == '__main__':
     new_inferno = cm.get_cmap('inferno', 5)
     plt.pcolormesh(eta_full_env, cmap = new_inferno)
     plt.colorbar()
-    plt.title('Colormap for eta in visited states')
+    plt.title('Eta in visited states')
     plt.savefig(os.path.join(new_folder_name, "Colormap_linear_eta_state.jpg"))
     plt.close("all")
 
