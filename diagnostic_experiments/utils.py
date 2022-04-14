@@ -7,6 +7,13 @@ import random
 from scipy.special import expit
 from scipy.special import logsumexp
 from scipy.spatial.distance import euclidean, cityblock
+from scipy.stats import entropy
+
+def Entropy(prob):
+    return entropy(prob)
+
+def KL_Divergence(prob, base_prob):
+    return entropy(prob, qk=base_prob)
 
 def exponential_smoothing(a, weight=0.8):
     assert a.ndim==1

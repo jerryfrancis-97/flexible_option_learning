@@ -60,7 +60,7 @@ plt.legend()
 plt.xlabel("Episodes")
 plt.ylabel("Avg steps")
 plt.title("Learned Options")
-plt.savefig("Graph1_Learned_multioption_comparison.jpg")
+plt.savefig("Graph_learned_option_comparison.png")
 plt.close("all")
 
 
