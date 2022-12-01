@@ -1,4 +1,37 @@
-# Flexible Option Learning
+# Simultaneous State-Dependent Updating of multi-options in Flexible Option Learning
+
+### Abstract
+Within intra-option learning, Flexible Option Learning was formulated to enable
+simultaneous update of all option-policies which was consistent with their primitive
+action choices. However, updating all options without any goal-related heuristic
+reduces the degree of diversity of options within the option set, which is a major
+drawback. We revisit and extend Flexible Option learning to introduce a state-
+dependent multi-option update method to add more flexibility to the way multi-
+option updates can be performed in the context of deep reinforcement learning.
+Our method utilizes the concept of distance as a goal-related heuristic to generalize
+the multi-option updates in different important transitions like bottleneck situations
+in environment.
+
+
+### Method
+We follow all the notations and the assumptions for MDPs and options as mentioned in the Flexible
+Option Learning Klissarov and Precup (2021). In this work, we introduce a state-dependent function
+η(s) which is based on the concept of distance Distance from the current state s in an environment
+till the goal G. Hence, η(s) can be written as follows,
+
+η(s) = 1 / Distance(s, G)
+
+where Distance can be Euclidean distance or the Manhattan (Cityblock) distance. Therefore,
+
+Distance = Euclidean(X, Y) = sqrt[ (Xi − Xj)^2 + (Yi − Yj)^2 ] 
+
+and
+
+Distance = Cityblock(X, Y) = Abs(Xi − Xj) + Abs(Yi − Yj)
+
+#### NB : Used for EEML'22 submission.
+============================================================================================
+## From Flexible Option Learning original git repo
 
 This repository contains code for the paper [Flexible Option Learning](https://arxiv.org/abs/2112.03097) presented as a Spotlight at NeurIPS 2021. The implementation is based on [gym-miniworld](https://github.com/maximecb/gym-miniworld), OpenAI's  [baselines](https://github.com/openai/baselines) and the Option-Critic's [tabular implementation](https://github.com/jeanharb/option_critic/tree/master/fourrooms).
 
